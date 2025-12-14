@@ -1,0 +1,106 @@
+import User from "../models/User.js";
+import { verifyPassword } from "../utils/passwordUtils.js";
+import {
+  generateAccessToken,
+  generateRefreshToken
+} from "../utils/generateToken.js";
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+   
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+
+    const isValid = await verifyPassword(user.password, password);
+
+    if (!isValid) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+   
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict"
+    });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict"
+    });
+
+    res.json({ message: "Logged in successfully" });
+
+  } catch (error) {
+    res.status(500).json({ message: "Login failed" });
+  }
+};
+import crypto from "crypto";
+import Token from "../models/Token.js";
+import User from "../models/User.js";
+import { hashPassword } from "../utils/passwordUtils.js";
+import { sendEmail } from "../utils/sendEmail.js";
+
+//  Forgot Password
+export const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) return res.status(400).json({ message: "User not found" });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  await Token.create({ userId: user._id, token, createdAt: Date.now() });
+
+  const resetLink = `${process.env.CLIENT_URL}/reset-password/${token}`;
+  await sendEmail(user.email, "Password Reset", `<a href="${resetLink}">Reset Password</a>`);
+
+  res.json({ message: "Password reset link sent" });
+};
+
+//  Reset Password
+export const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  const resetToken = await Token.findOne({ token });
+  if (!resetToken) return res.status(400).json({ message: "Invalid or expired token" });
+
+  const user = await User.findById(resetToken.userId);
+  user.password = await hashPassword(password);
+  await user.save();
+
+  await resetToken.deleteOne();
+
+  res.json({ message: "Password reset successful" });
+};
+
+import Token from "../models/Token.js";
+import User from "../models/User.js";
+import { hashPassword } from "../utils/passwordUtils.js";
+
+export const resetPassword = async (req, res) => {
+  const { token } = req.params;
+  const { password } = req.body;
+
+  
+  const resetToken = await Token.findOne({ token });
+  if (!resetToken) return res.status(400).json({ message: "Invalid or expired token" });
+
+  
+  const user = await User.findById(resetToken.userId);
+  user.password = await hashPassword(password);
+  await user.save();
+
+  
+  await resetToken.deleteOne();
+
+  res.json({ message: "Password reset successful" });
+};

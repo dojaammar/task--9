@@ -1,0 +1,32 @@
+import express from "express";
+import { login } from "../controllers/authController.js";
+
+const router = express.Router();
+
+router.post("/login", login);
+
+export default router;
+
+
+import express from "express";
+import { authMiddleware } from "../middlewares/authMiddleware.js";
+
+const router = express.Router();
+
+router.get("/profile", authMiddleware, (req, res) => {
+  res.json({
+    message: "Protected route",
+    userId: req.user.id
+  });
+});
+
+export default router;import express from "express";
+import { forgotPassword, resetPassword } from "../controllers/authController.js";
+
+const router = express.Router();
+
+
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
+
+export default router;
